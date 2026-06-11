@@ -275,6 +275,10 @@ with tab_rob:
         )
         result = rob.compute_rob_series(daily, initial_rob=init or None)
 
+        if result.empty:
+            st.warning("每日記錄為空，無法推算 ROB。")
+            st.stop()
+
         last = result.iloc[-1]
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("最新推算 ROB", f"{last['rob_calc']:.1f} KL")
@@ -339,6 +343,9 @@ with tab_refuel:
         st.session_state.rates = {"出航": r_sail, "靠港": r_port, "進塢": r_dock}
 
         rob_series = rob.compute_rob_series(daily)
+        if rob_series.empty:
+            st.warning("每日記錄為空，無法推算 ROB。")
+            st.stop()
         start_rob = float(rob_series.iloc[-1]["rob_calc"])
         last_date = rob_series.iloc[-1]["date"]
         st.caption(f"預測起點：{pd.to_datetime(last_date):%Y-%m-%d} 推算 ROB {start_rob:.1f} KL")
