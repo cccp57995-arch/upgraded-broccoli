@@ -4,7 +4,43 @@ R/V Legend Fuel Consumption Management System — 用於讀取勵進研究船的
 航務數據，提供燃油消耗管理、每日油耗報告、航次油耗統計、ROB 推算、
 加油建議與剩餘航次油量預測。
 
-## 快速開始
+## 2026 加油計畫產生器（CLI）
+
+依航次任務類型與歷史實績計算油耗（取代固定 4.5–4.7 KL/day 估算值），
+一鍵輸出 5 頁加油計畫 Excel：
+
+```bash
+python build_plan.py \
+    --history data/TORI_FuelConsumption_Summary.xlsx \
+    --voyages data/TORI_2026_voyages.csv \
+    --out output/TORI_2026_加油計畫.xlsx
+```
+
+輸出工作表：
+
+| 頁 | 內容 |
+|---|---|
+| 用油分析摘要 | 判定規則、歷史全體統計、各任務類型油耗率（日均/P25/P50/P75）與建議採用值 |
+| 月份統計 | 歷史實際月份用油（出航/靠港/進塢分色） |
+| 每日明細 | 歷史逐日油耗（含加油量欄，加油日黃底） |
+| 2026加油預估 | 各航次依類型套用油耗率、加油時機與加油量、ROB 警示 |
+| 2026逐日ROB | 預估 ROB、實際 ROB（有資料才填）、日耗油誤差（實際−預估） |
+
+核心邏輯：
+
+- **任務類型油耗率**：由 2026 航次表的委託單位分類（國科會／內政部＋國海院
+  水深測量／震測／試航／中研院／地礦中心／中華電信）。類型出航日樣本
+  ≥ 10 天採類型中位數，不足則退回全體出航日中位數並於摘要頁標註依據。
+- **加油時機自動推導**：航次備註含「出塢加油」→ 塢修結束次日；含「加燃油」
+  → 該航次返港次日；補滿至 465 KL（已發生加油採實際加油量）。
+- **加油判定**（SMF 原始格式）：前後兩日 ROB 差值 > 10 KL 即視為加油。
+- **ROB 參數**：油艙上限 465 KL、警戒線 150 KL，低於警戒線自動產生警示。
+
+歷史檔支援 `TORI_FuelConsumption_Summary` 整理格式，或以 `--smf` 讀取
+SMF-07-05 原始 Daily Log（固定欄位：col 22-24 時數、col 26 距離、
+col 33-37 油耗、col 42 ROB）。
+
+## 互動介面（Streamlit）
 
 ```bash
 pip install -r requirements.txt
@@ -59,8 +95,16 @@ streamlit run app.py
 ## 專案結構
 
 ```
+build_plan.py           2026 加油計畫產生器（CLI，輸出 5 頁 Excel）
 app.py                  Streamlit 主程式（匯入、報告、統計、ROB、預測五個頁籤）
+data/                   輸入資料（歷史每日油耗 Excel、2026 航次總表 CSV）
 tori_fuel/
+  history.py            歷史每日資料載入（SMF-07-05 原始格式／整理格式）、
+                        分類與 ROB 差值加油判定
+  voyage_types.py       航次任務類型分類（委託單位＋震測關鍵字）
+  typestats.py          各類型油耗統計（日均/P25/P50/P75）與建議油耗率
+  plan2026.py           2026 航次展開、ROB 推算與加油排程
+  report.py             5 頁加油計畫 Excel 報表
   schema.py             標準欄位定義、欄位自動猜測與對應
   classifier.py         航次日分類與資料異常檢查
   rob.py                ROB 推算（465 KL / 150 KL 參數）
